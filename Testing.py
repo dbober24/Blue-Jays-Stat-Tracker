@@ -119,5 +119,5 @@ def launch_gui(team_id):
     update_game_display(team_id, label)
     root.mainloop()
 
-# Example: Launch GUI for Yankees (team ID 143)
-launch_gui(111)
+# Example: Launch GUI for (Blue Jays teamID=141) Link to all team codes https://github.com/jasonlttl/gameday-api-docs/blob/master/team-information.md
+launch_gui(141)
