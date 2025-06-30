@@ -113,9 +113,9 @@ def update_game_display(team_id, label):
 def launch_gui(team_id):
     root = tk.Tk()
     root.title("MLB Live Game Tracker")
-    root.geometry("1024x600")                #1024x600
-    label = tk.Label(root, text="Loading...", font=("Helvetica", 14))
-    label.pack(pady=20)
+    root.geometry("1024x600")              
+    label = tk.Label(root, text="Loading...", font=("Helvetica", 40), justify="center", anchor="center", wraplength=1000)
+    label.pack(expand=True, fill="both", pady=20)
     update_game_display(team_id, label)
     root.mainloop()
 
