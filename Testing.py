@@ -64,7 +64,6 @@ def get_pitcher_stats(pitcher_id):
         return "Stats unavailable"
 
 
-# Update display to show current batter, pitcher stats, and post-game score
 def update_game_display(team_id, label):
     game_pk, game_time_utc = get_game_info(team_id)
     if not game_pk:
@@ -78,46 +77,75 @@ def update_game_display(team_id, label):
         last_pitcher = ""
         current_game_pk = game_pk
         current_game_start = game_start
+        game_ended = False
+        game_final_displayed_at = None
 
         while True:
             now = datetime.now(timezone.utc)
 
+            # Before game start
             if now < current_game_start:
                 countdown = current_game_start - now
                 hours, remainder = divmod(int(countdown.total_seconds()), 3600)
                 minutes, seconds = divmod(remainder, 60)
                 label.config(text=f"Game Starts In: {hours:02}:{minutes:02}:{seconds:02}")
                 time.sleep(1)
-            else:
-                game_url = f"https://statsapi.mlb.com/api/v1.1/game/{current_game_pk}/feed/live"
-                data = requests.get(game_url).json()
-                game_status = data["gameData"]["status"]["detailedState"]
+                continue
 
-                if game_status == "Final":
+            # Fetch game data
+            game_url = f"https://statsapi.mlb.com/api/v1.1/game/{current_game_pk}/feed/live"
+            try:
+                data = requests.get(game_url).json()
+            except Exception as e:
+                label.config(text=f"Error loading game data:\n{e}")
+                time.sleep(10)
+                continue
+
+            game_status = data["gameData"]["status"]["detailedState"]
+
+            if game_status == "Final":
+                # Show final score until midnight
+                if not game_ended:
                     home_team_name = data["gameData"]["teams"]["home"]["teamName"]
                     away_team_name = data["gameData"]["teams"]["away"]["teamName"]
                     home_score = data["liveData"]["linescore"]["teams"]["home"]["runs"]
                     away_score = data["liveData"]["linescore"]["teams"]["away"]["runs"]
                     label.config(text=f"Game Over!\n{away_team_name} {away_score} - {home_team_name} {home_score}")
+                    game_ended = True
+                    game_final_displayed_at = now
 
-                    # Wait a bit, then check if a new game is scheduled
-                    time.sleep(60)  # Wait a minute before checking for the next game
+                # Check if it's past midnight local time (Toronto time)
+                local_now = datetime.now().astimezone().date()
+                final_day = game_final_displayed_at.astimezone().date()
+                if local_now > final_day:
+                    # Look for the next scheduled game
                     new_pk, new_time = get_game_info(team_id)
-                    if new_pk != current_game_pk and new_pk is not None:
+                    if new_pk and new_pk != current_game_pk:
                         current_game_pk = new_pk
                         current_game_start = datetime.fromisoformat(new_time.replace('Z', '+00:00'))
                         last_batter = ""
                         last_pitcher = ""
+                        game_ended = False
                         label.config(text="Loading next game...")
-                else:
-                    batter_name, batter_id, pitcher_name, pitcher_id = get_current_players(current_game_pk)
-                    if batter_name != last_batter or pitcher_name != last_pitcher:
-                        batter_stats = get_batter_stats(batter_id)
-                        pitcher_stats = get_pitcher_stats(pitcher_id)
-                        label.config(text=f"Current Batter: {batter_name}\n{batter_stats}\n\nCurrent Pitcher: {pitcher_name}\n{pitcher_stats}")
-                        last_batter = batter_name
-                        last_pitcher = pitcher_name
-                    time.sleep(5)
+                        time.sleep(2)
+                        continue
+
+                time.sleep(30)
+                continue
+
+            # Game is in progress
+            try:
+                batter_name, batter_id, pitcher_name, pitcher_id = get_current_players(current_game_pk)
+                if batter_name != last_batter or pitcher_name != last_pitcher:
+                    batter_stats = get_batter_stats(batter_id)
+                    pitcher_stats = get_pitcher_stats(pitcher_id)
+                    label.config(text=f"Current Batter: {batter_name}\n{batter_stats}\n\nCurrent Pitcher: {pitcher_name}\n{pitcher_stats}")
+                    last_batter = batter_name
+                    last_pitcher = pitcher_name
+            except Exception as e:
+                label.config(text=f"Error fetching player data:\n{e}")
+
+            time.sleep(5)
 
     threading.Thread(target=refresh, daemon=True).start()
 
