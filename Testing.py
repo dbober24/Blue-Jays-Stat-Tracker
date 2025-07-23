@@ -6,17 +6,30 @@ import tkinter as tk
 
 def get_game_info(team_id):
     today = date.today()
-    sched_url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={today}"
+
+    # First, try today’s games
+    sched_url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={today}&endDate={today}"
     try:
-        games = requests.get(sched_url).json()["dates"][0]["games"]
-    except (KeyError, IndexError):
-        return None, None
-    for game in games:
-        if game["teams"]["home"]["team"]["id"] == team_id or game["teams"]["away"]["team"]["id"] == team_id:
-            game_pk = game["gamePk"]
-            game_time = game["gameDate"]
-            return game_pk, game_time
-    return None, None
+        games = requests.get(sched_url).json().get("dates", [])[0].get("games", [])
+        for game in games:
+            if game["teams"]["home"]["team"]["id"] == team_id or game["teams"]["away"]["team"]["id"] == team_id:
+                return game["gamePk"], game["gameDate"], None
+    except (IndexError, KeyError):
+        pass  # No game today
+
+    # If no game today, search up to 30 days ahead for the next game
+    future_sched_url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&teamId={team_id}&startDate={today}&endDate={date(today.year, 12, 31)}"
+    try:
+        future_dates = requests.get(future_sched_url).json().get("dates", [])
+        for day in future_dates:
+            for game in day.get("games", []):
+                return None, None, game["gameDate"]  # This is the next game
+    except Exception as e:
+        print(f"Error fetching future games: {e}")
+
+    return None, None, None  # No future games found
+
+
 
 def get_current_players_and_live_data(game_pk):
     url = f"https://statsapi.mlb.com/api/v1.1/game/{game_pk}/feed/live"
@@ -80,9 +93,17 @@ def get_pitcher_stats(pitcher_id):
         return "Stats unavailable (network error)"
 
 def update_game_display(team_id, label, view_mode, toggle_btn, force_refresh):
-    game_pk, game_time_utc = get_game_info(team_id)
+    game_pk, game_time_utc, next_game_time = get_game_info(team_id)
     if not game_pk:
-        label.config(text="No Game Today")
+        if next_game_time:
+            try:
+                dt = datetime.fromisoformat(next_game_time.replace("Z", "+00:00")).astimezone()
+                formatted_time = dt.strftime("%A, %B %d @ %I:%M %p")
+                label.config(text=f"No Game Today\n\nNext Game: {formatted_time}")
+            except Exception:
+              label.config(text="No Game Today\n\nNext Game: Date/time unavailable")
+        else:             
+            label.config(text="No Game Today")
         toggle_btn.pack_forget()
         return
 
@@ -103,6 +124,8 @@ def update_game_display(team_id, label, view_mode, toggle_btn, force_refresh):
         current_game_start = game_start
         game_ended = False
         game_final_displayed_at = None
+        previous_date = datetime.now(timezone.utc).date()
+
 
         # Initialize last_pitch_info with all possible keys
         last_pitch_info = {
@@ -146,22 +169,21 @@ def update_game_display(team_id, label, view_mode, toggle_btn, force_refresh):
                              f"({home_record.get('wins', 'N/A')}-{home_record.get('losses', 'N/A')})"
                     )
                     game_ended = True
-                    game_final_displayed_at = now
                     toggle_btn.pack_forget()
+                new_pk,new_time,_ = get_game_info(team_id)
 
-                if game_final_displayed_at and datetime.now(timezone.utc).date() > game_final_displayed_at.date():
-                    new_pk, new_time = get_game_info(team_id)
-                    if new_pk and new_pk != current_game_pk:
-                        current_game_pk = new_pk
-                        current_game_start = datetime.fromisoformat(new_time.replace('Z', '+00:00'))
-                        last_batter = ""
-                        last_pitcher = ""
-                        game_ended = False
-                        label.config(text="Loading next game...")
-                        time.sleep(2)
-                        continue
+                if new_pk and new_pk != current_game_pk:
+                    # ...then reset the state for the new game.
+                    current_game_pk = new_pk
+                    current_game_start = datetime.fromisoformat(new_time.replace('Z', '+00:00'))
+                    last_batter = ""
+                    last_pitcher = ""
+                    game_ended = False
+                    label.config(text="Loading next game...")
+                    time.sleep(2) # Show message briefly
+                    continue      # Restart the loop for the new game
 
-                time.sleep(30)
+                time.sleep(60)
                 continue
 
             # If game is not final and has started, show toggle button
@@ -264,3 +286,6 @@ def launch_gui(team_id):
 
 # Blue Jays team ID = 141
 launch_gui(141)
+
+# LOGS 
+# added next game time on no game today screen
