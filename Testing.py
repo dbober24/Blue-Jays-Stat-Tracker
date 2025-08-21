@@ -286,6 +286,3 @@ def launch_gui(team_id):
 
 # Blue Jays team ID = 141
 launch_gui(141)
-
-# LOGS 
-# added next game time on no game today screen
