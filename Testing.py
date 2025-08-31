@@ -337,3 +337,4 @@ if __name__ == "__main__":
     # Blue Jays team ID = 141
     launch_gui(141)
 
+# Increased Size of Settings Tabs
