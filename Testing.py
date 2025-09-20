@@ -154,12 +154,12 @@ def update_game_display(team_id, label, view_mode, toggle_btn, force_refresh, st
                              f"{away.get('teamName', 'Away')} {away_score} - {home.get('teamName', 'Home')} {home_score}\n"
                              f"({away_record.get('wins', 'N/A')}-{away_record.get('losses', 'N/A')})   "
                              f"({home_record.get('wins', 'N/A')}-{home_record.get('losses', 'N/A')})"
-                    )
+                )
                 toggle_btn.pack_forget()
                 break # Exit loop and end thread
 
             if not toggle_btn.winfo_ismapped():
-                toggle_btn.pack(pady=10)
+                toggle_btn.pack(pady=20)
 
             # --- Data Display Logic ---
             current_play_obj = live_data.get("liveData", {}).get("plays", {}).get("currentPlay", {})
@@ -182,7 +182,7 @@ def update_game_display(team_id, label, view_mode, toggle_btn, force_refresh, st
                                 pitch_data = event.get("pitchData", {})
                                 break_vert = pitch_data.get("breaks", {}).get("breakVertical", "N/A")
                                 break_hori = pitch_data.get("breaks", {}).get("breakHorizontal", "N/A")
-                                label.config(text=f"Last Pitch to {batter_name}:\n{pitch_type} ({speed} mph)\nResult: {outcome}:\n  Vertical Break: {break_vert}:\nHorizontal Break:{break_hori}")
+                                label.config(text=f"Last Pitch to {batter_name}:\n{pitch_type} ({speed} mph)\nResult: {outcome}:\n Vertical Break: {break_vert}:\nHorizontal Break:{break_hori}")
                                 pitch_found = True
                                 break
                         if pitch_found: break
@@ -213,18 +213,25 @@ def launch_gui(initial_team_id=141):
     current_theme = tk.StringVar(value="light")
     root.configure(bg="white")
 
-    label = tk.Label(
-        root, text="Loading...", font=("Helvetica", current_font_size.get()),
-        justify="center", anchor="center", wraplength=1000, bg="white", fg="black"
-    )
-    label.pack(expand=True, fill="both", pady=20)
+    # --- CUSTOM SETTINGS BAR (Replaces native menubar) ---
+    settings_frame = tk.Frame(root, bg="white")
+    settings_frame.pack(side="top", fill="x")
 
-    # --- Settings Functions ---
     def apply_theme():
         bg, fg = ("black", "white") if current_theme.get() == "dark" else ("white", "black")
         root.configure(bg=bg)
         label.configure(bg=bg, fg=fg)
+        # Apply theme to custom settings bar as well
+        settings_frame.configure(bg=bg)
+        settings_menubutton.configure(
+            bg=("#555555" if current_theme.get() == "dark" else "#ffffff"),
+            fg=("#ffffff" if current_theme.get() == "dark" else "#000000"),
+            activebackground=("#666666" if current_theme.get() == "dark" else "#e0e0e0"),
+            activeforeground=("#ffffff" if current_theme.get() == "dark" else "#000000")
+        )
 
+
+    # --- Settings Functions ---
     def change_font(size):
         current_font_size.set(size)
         label.config(font=("Helvetica", size))
@@ -241,72 +248,75 @@ def launch_gui(initial_team_id=141):
         view_mode.set("pitch" if view_mode.get() == "stats" else "stats")
         force_refresh.set(True)
 
-    toggle_btn = tk.Button(root, text="Toggle View", command=toggle_view, font=("Helvetica", 20))
+    # Main content label
+    label = tk.Label(
+        root, text="Loading...", font=("Helvetica", current_font_size.get()),
+        justify="center", anchor="center", wraplength=1000, bg="white", fg="black"
+    )
+    label.pack(expand=True, fill="both", pady=20, padx=20)
 
-        # --- MENU BAR SETUP ---
-    menubar = tk.Menu(root)
-    root.config(menu=menubar)
+    toggle_btn = tk.Button(
+        root, text="Toggle View", command=toggle_view,
+        font=("Helvetica", 24), padx=10, pady=5
+    )
 
-    # Main Settings Menu
-    settings_menu = tk.Menu(menubar, tearoff=0)
-    menubar.add_cascade(label="Settings", menu=settings_menu)
+    # --- MENU SETUP (Attached to custom Menubutton) ---
+    settings_menubutton = tk.Menubutton(
+        settings_frame, text="Settings", font=("Helvetica", 24),
+        relief="raised", padx=10, pady=5, borderwidth=2,
+        bg="#ffffff", fg="#000000",
+        activebackground="#e0e0e0"
+    )
+    settings_menubutton.pack(side="left", padx=10, pady=10)
+    
+    dropdown_font = ("Helvetica", 16)
+    settings_menu = tk.Menu(settings_menubutton, tearoff=0, font=dropdown_font)
+    settings_menubutton["menu"] = settings_menu
 
     # 1. Team Selection Submenu
-    team_menu = tk.Menu(settings_menu, tearoff=0)
+    team_menu = tk.Menu(settings_menu, tearoff=0, font=dropdown_font)
     settings_menu.add_cascade(label="Select Team", menu=team_menu)
     ALL_TEAMS = {
         "American League": {
             "East": [
-                {"name": "Baltimore Orioles", "id": 110},
-                {"name": "Boston Red Sox", "id": 111},
-                {"name": "New York Yankees", "id": 147},
-                {"name": "Tampa Bay Rays", "id": 139},
+                {"name": "Baltimore Orioles", "id": 110}, {"name": "Boston Red Sox", "id": 111},
+                {"name": "New York Yankees", "id": 147}, {"name": "Tampa Bay Rays", "id": 139},
                 {"name": "Toronto Blue Jays", "id": 141},
             ],
             "Central": [
-                {"name": "Chicago White Sox", "id": 145},
-                {"name": "Cleveland Guardians", "id": 114},
-                {"name": "Detroit Tigers", "id": 116},
-                {"name": "Kansas City Royals", "id": 118},
+                {"name": "Chicago White Sox", "id": 145}, {"name": "Cleveland Guardians", "id": 114},
+                {"name": "Detroit Tigers", "id": 116}, {"name": "Kansas City Royals", "id": 118},
                 {"name": "Minnesota Twins", "id": 142},
             ],
             "West": [
-                {"name": "Houston Astros", "id": 117},
-                {"name": "Los Angeles Angels", "id": 108},
-                {"name": "Oakland Athletics", "id": 133},
-                {"name": "Seattle Mariners", "id": 136},
+                {"name": "Houston Astros", "id": 117}, {"name": "Los Angeles Angels", "id": 108},
+                {"name": "Oakland Athletics", "id": 133}, {"name": "Seattle Mariners", "id": 136},
                 {"name": "Texas Rangers", "id": 140},
             ],
         },
         "National League": {
             "East": [
-                {"name": "Atlanta Braves", "id": 144},
-                {"name": "Miami Marlins", "id": 146},
-                {"name": "New York Mets", "id": 121},
-                {"name": "Philadelphia Phillies", "id": 143},
+                {"name": "Atlanta Braves", "id": 144}, {"name": "Miami Marlins", "id": 146},
+                {"name": "New York Mets", "id": 121}, {"name": "Philadelphia Phillies", "id": 143},
                 {"name": "Washington Nationals", "id": 120},
             ],
             "Central": [
-                {"name": "Chicago Cubs", "id": 112},
-                {"name": "Cincinnati Reds", "id": 113},
-                {"name": "Milwaukee Brewers", "id": 158},
-                {"name": "Pittsburgh Pirates", "id": 134},
+                {"name": "Chicago Cubs", "id": 112}, {"name": "Cincinnati Reds", "id": 113},
+                {"name": "Milwaukee Brewers", "id": 158}, {"name": "Pittsburgh Pirates", "id": 134},
                 {"name": "St. Louis Cardinals", "id": 138},
             ],
             "West": [
-                {"name": "Arizona Diamondbacks", "id": 109},
-                {"name": "Colorado Rockies", "id": 115},
-                {"name": "Los Angeles Dodgers", "id": 119},
-                {"name": "San Diego Padres", "id": 135},
+                {"name": "Arizona Diamondbacks", "id": 109}, {"name": "Colorado Rockies", "id": 115},
+                {"name": "Los Angeles Dodgers", "id": 119}, {"name": "San Diego Padres", "id": 135},
                 {"name": "San Francisco Giants", "id": 137},
             ],
         },
     }
     for league_name, divisions in ALL_TEAMS.items():
-        league_menu = tk.Menu(team_menu, tearoff=0)
+        league_menu = tk.Menu(team_menu, tearoff=0, font=dropdown_font)
         team_menu.add_cascade(label=league_name, menu=league_menu)
         for division_name, teams_in_division in divisions.items():
-            division_menu = tk.Menu(league_menu, tearoff=0)
+            division_menu = tk.Menu(league_menu, tearoff=0, font=dropdown_font)
             league_menu.add_cascade(label=division_name, menu=division_menu)
             for team in teams_in_division:
                 division_menu.add_command(
@@ -315,19 +325,18 @@ def launch_gui(initial_team_id=141):
                 )
 
     # 2. Font Size Submenu
-    font_menu = tk.Menu(settings_menu, tearoff=0)
+    font_menu = tk.Menu(settings_menu, tearoff=0, font=dropdown_font)
     settings_menu.add_cascade(label="Font Size", menu=font_menu)
     font_menu.add_command(label="Small", command=lambda: change_font(24))
     font_menu.add_command(label="Medium", command=lambda: change_font(32))
     font_menu.add_command(label="Large", command=lambda: change_font(48))
 
     # 3. Theme Submenu
-    theme_menu = tk.Menu(settings_menu, tearoff=0)
+    theme_menu = tk.Menu(settings_menu, tearoff=0, font=dropdown_font)
     settings_menu.add_cascade(label="Theme", menu=theme_menu)
     theme_menu.add_command(label="Light", command=lambda: (current_theme.set("light"), apply_theme()))
     theme_menu.add_command(label="Dark", command=lambda: (current_theme.set("dark"), apply_theme()))
-    # --- END OF MENU BAR ---
-
+    # --- END OF MENU SETUP ---
 
     # Initial start
     update_game_display(initial_team_id, label, view_mode, toggle_btn, force_refresh, stop_event)
@@ -337,4 +346,3 @@ if __name__ == "__main__":
     # Blue Jays team ID = 141
     launch_gui(141)
 
-# Increased Size of Settings Tabs
